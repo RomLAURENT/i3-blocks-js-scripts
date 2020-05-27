@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const templates = require("./conf.json");
+const { templates } = require("./conf.json");
 const { execAsync, update, jobPlanner, eventHandler } = require("./blocks");
 
 const mainJob = jobPlanner(async ({ symbol, zone, warning, alert }) => {
@@ -10,8 +10,8 @@ const mainJob = jobPlanner(async ({ symbol, zone, warning, alert }) => {
 
     const template =
         usedPC < alert ? templates.alert :
-        usedPC < warning ? templates.warning :
-        templates.normal;
+            usedPC < warning ? templates.warning :
+                templates.normal;
 
     update(
         template,

@@ -1,15 +1,30 @@
 #!/usr/bin/env node
-const templates = require("./conf.json");
+const { templates } = require("./conf.json");
 const { exec } = require("child_process");
 const readline = require('readline');
 
 const execAsync = command => new Promise((resolve, reject) => exec(command, (error, stdout, stderr) => resolve([!error, error, stdout, stderr])));
 
-let previousValue = "";
+function formatText(format, values) {
+    return Object
+        .getOwnPropertyNames(values)
+        .reduce((s, n) => s.replace(`%${n}%`, values[n]), format);
+}
+
+let previous_value = "";
 const update = (...blockdef) => {
-    const value = JSON.stringify(Object.assign({}, templates.default, ...blockdef));
-    if(previousValue != value) {
-        console.log(previousValue = value);
+    const value = JSON.stringify(
+        [templates.default, ...blockdef].reduce(
+            (s, v) =>
+                v === null ? s :
+                    typeof v === 'object' ? { ...s, ...v } :
+                        { ...s, full_text: v.toString() },
+            {}
+        )
+    );
+
+    if (previous_value != value) {
+        console.log(previous_value = value);
     }
 };
 
@@ -38,5 +53,6 @@ module.exports = {
     execAsync,
     update,
     jobPlanner,
-    eventHandler
+    eventHandler,
+    formatText,
 };

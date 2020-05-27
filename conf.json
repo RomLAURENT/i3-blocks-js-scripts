@@ -1,21 +1,23 @@
 {
-    "alert":        {"color":"#FF5252"},
-    "good":         {"color":"#82C785"},
-    "warning":      {"color":"#C8CD68"},
-    "accent":       {"background":"#6988A6", "border":"#6988A6", "color":"#E1E1E1"},
-    "normal":       {"color":"#C1C1C1"},
-    "default": {
-        "background":"#484848",
-        "border":"#484848",
-        "border_top":0,
-        "border_bottom":0,
-        "border_left":10,
-        "border_right":10,
-        "color":"#C1C1C1",
-        "align":"center",
-        "min_width": 40,
-        "separator":false,
-        "separator_block_width":1,
-        "markup":"pango"
+    "templates": {
+        "alert":        {"color":"#FF5252"},
+        "good":         {"color":"#82C785"},
+        "warning":      {"color":"#C8CD68"},
+        "accent":       {"background":"#6988A6", "border":"#6988A6", "color":"#E1E1E1"},
+        "normal":       {"color":"#C1C1C1"},
+        "default": {
+            "background":"#484848",
+            "border":"#484848",
+            "border_top":0,
+            "border_bottom":0,
+            "border_left":10,
+            "border_right":10,
+            "color":"#C1C1C1",
+            "align":"center",
+            "min_width": 40,
+            "separator":false,
+            "separator_block_width":1,
+            "markup":"pango"
+        }
     }
 }

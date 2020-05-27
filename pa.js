@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const templates = require("./conf.json");
+const { templates } = require("./conf.json");
 const { execAsync, update, jobPlanner, eventHandler } = require("./blocks");
 
 

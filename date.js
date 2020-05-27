@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 const { format } = require("date-fns");
 const locales = require('date-fns/locale');
-const templates = require("./conf.json");
+const { templates } = require("./conf.json");
 const { execAsync, update, jobPlanner, eventHandler } = require("./blocks");
 
 const patterns = [process.env.pattern, process.env.altpattern].filter(i => !!i);

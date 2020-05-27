@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const templates = require("./conf.json");
+const { templates } = require("./conf.json");
 const { execAsync, update, jobPlanner, eventHandler } = require("./blocks");
 
 const isActive = async connection => (await execAsync(`nmcli connection show --active | grep "${connection}"`))[0];
@@ -17,7 +17,7 @@ const mainJob = jobPlanner(async ({ symbol, connection }) => {
 }, 5000);
 
 eventHandler(async ({ symbol, connection, button }) => {
-    switch(button) {
+    switch (button) {
         case 1:
             mainJob.suspend();
 
@@ -30,7 +30,7 @@ eventHandler(async ({ symbol, connection, button }) => {
 
             await toggle(connection, !await isActive(connection));
             mainJob.resume(true);
-        break;
+            break;
     }
 });
 
