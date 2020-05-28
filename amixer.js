@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 const { templates } = require("./conf.json");
-const { formatText, execAsync, update, jobPlanner, eventHandler } = require("./blocks");
+const { formatText, execAsync, update, jobPlanner, eventHandler } = require("./i3-blocks-helper");
 
 let savedVolume = "0%";
 
@@ -29,7 +29,7 @@ const mainJob = jobPlanner(async ({
     );
 }, 5000);
 
-eventHandler(async ({ card, control, button }) => {
+eventHandler(async ({ card, control, button, wheelclick, rightclick }) => {
     switch (button) {
         case 1:
             {
@@ -40,10 +40,15 @@ eventHandler(async ({ card, control, button }) => {
             }
             break;
 
+        case 2:
+            {
+                if (wheelclick) await execAsync(wheelclick);
+            }
+            break;
+
         case 3:
             {
-                await execAsync(`i3-msg exec "xfce4-terminal -e 'alsamixer -c ${card}'"`);
-                mainJob.resume(true);
+                if (rightclick) await execAsync(rightclick);
             }
             break;
 

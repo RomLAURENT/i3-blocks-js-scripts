@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 const { templates } = require("./conf.json");
-const { execAsync, update, jobPlanner, eventHandler } = require("./blocks");
+const { execAsync, update, jobPlanner, eventHandler } = require("./i3-blocks-helper");
 
 
 const mainJob = jobPlanner(async ({ mode, dev, symbol, mutedsymbol }) => {
@@ -20,26 +20,39 @@ const mainJob = jobPlanner(async ({ mode, dev, symbol, mutedsymbol }) => {
     }
 }, 500);
 
-eventHandler(async ({ mode, dev, button }) => {
+eventHandler(async ({ mode, dev, button, wheel_click, right_click }) => {
     switch (button) {
         case 1:
-            await execAsync(`pamixer --${mode} ${dev} --allow-boost --toggle-mute`);
-            mainJob.resume(true);
+            {
+                await execAsync(`pamixer --${mode} ${dev} --allow-boost --toggle-mute`);
+                mainJob.resume(true);
+            }
+            break;
+
+        case 2:
+            {
+                if (wheel_click) await execAsync(wheel_click);
+            }
             break;
 
         case 3:
-            await execAsync(`i3-msg 'exec "pavucontrol"'`);
-            mainJob.resume(true);
+            {
+                if (right_click) await execAsync(right_click);
+            }
             break;
 
         case 4:
-            await execAsync(`pamixer --${mode} ${dev} --allow-boost --increase 5`);
-            mainJob.resume(true);
+            {
+                await execAsync(`pamixer --${mode} ${dev} --allow-boost --increase 5`);
+                mainJob.resume(true);
+            }
             break;
 
         case 5:
-            await execAsync(`pamixer --${mode} ${dev} --allow-boost --decrease 5`);
-            mainJob.resume(true);
+            {
+                await execAsync(`pamixer --${mode} ${dev} --allow-boost --decrease 5`);
+                mainJob.resume(true);
+            }
             break;
     }
 });
