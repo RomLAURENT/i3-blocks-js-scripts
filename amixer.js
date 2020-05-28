@@ -14,18 +14,20 @@ async function getVolume(card, control) {
 const mainJob = jobPlanner(async ({
     card,
     control,
-    frmt = " <span size='small'>%volume%%</span>",
-    mutedfrmt = "",
+
+    frmt = "%control%: <span size='small'>%volume%%</span>",
     template = "normal",
-    mutedtemplate = "alert"
+
+    muted_frmt = "%control%: <span size='small'>%volume%%</span>",
+    muted_template = "alert"
 }) => {
     const [volume, muted] = await getVolume(card, control);
 
     if (!muted) savedVolume = volume;
 
     update(
-        templates[muted ? mutedtemplate : template],
-        formatText(muted ? mutedfrmt : frmt, { volume })
+        templates[muted ? muted_template : template],
+        formatText(muted ? muted_frmt : frmt, { volume, control })
     );
 }, 5000);
 
