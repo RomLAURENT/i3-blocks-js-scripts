@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 const { templates } = require("./conf.json");
-const { execAsync, update, jobPlanner, eventHandler } = require("./i3-blocks-helper");
+const { formatText, execAsync, update, jobPlanner, eventHandler } = require("./i3-blocks-helper");
 
 
-const mainJob = jobPlanner(async ({ symbol, template }) => {
+const mainJob = jobPlanner(async ({
+    text,
+    template="accent"
+}) => {
     update(
         templates[template],
-        { full_text: symbol }
+        text,
     );
 }, 60 * 60 * 60 * 1000);
 
