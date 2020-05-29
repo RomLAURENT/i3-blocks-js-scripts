@@ -1,26 +1,50 @@
 #!/usr/bin/env node
+process.title = "i3blocks-js-pa";
+
 const { templates } = require("./conf.json");
-const { execAsync, update, jobPlanner, eventHandler } = require("./i3-blocks-helper");
+const paParser = require("./pa-parser");
+const { formatText, execAsync, update, jobPlanner, eventHandler } = require("./i3-blocks-helper");
 
+const getPAStatus = async (mode, dev) => {
+    const [, , raw] = await execAsync(`pacmd list-${mode}s`);
+    const status = paParser(raw);
+    return status.filter(c => c.value == dev)[0];
+}
 
-const mainJob = jobPlanner(async ({ mode, dev, symbol, mutedsymbol }) => {
-    const [, , volume] = await execAsync(`pamixer --${mode} ${dev} --allow-boost --get-volume-human`);
+function getPortLabel (port) {
+    return process.env[`port_label_${port}`] || process.env[`port_label_undefined`] || port;
+}
 
-    if (volume.trim() === "muted") {
-        update(
-            templates.alert,
-            { full_text: mutedsymbol }
-        );
-    }
-    else {
-        update(
-            templates.normal,
-            { full_text: `${symbol} <span size='small'>${volume.trim()}</span>` }
-        );
-    }
+const mainJob = jobPlanner(async ({
+    mode,
+    dev,
+
+    frmt = `%port% : %volume%%`,
+    template = "normal",
+
+    frmt_muted = `%port% : MUTED`,
+    muted_template = "alert",
+}) => {
+    const status = await getPAStatus(mode, dev);
+    const [, vol_left_raw, vol_left_pc, vol_left_db] = status.volume.match(/front\-left\:\s+(\d+)\s+\/\s+(\d+)%\s+\/\s+(\-?\d+,\d+)\s+dB/i) || [];
+    const [, vol_right_raw, vol_right_pc, vol_right_db] = status.volume.match(/front\-right\:\s+(\d+)\s+\/\s+(\d+)%\s+\/\s+(\-?\d+,\d+)\s+dB/i) || [];
+
+    update(
+        templates[status.muted ? muted_template : template],
+        formatText(status.muted ? frmt_muted : frmt, {
+            port: getPortLabel(status["active port"]),
+            volume: vol_left_pc || vol_right_pc,
+            vol_left_raw,
+            vol_left_pc,
+            vol_left_db,
+            vol_right_raw,
+            vol_right_pc,
+            vol_right_db,
+        })
+    );
 }, 500);
 
-eventHandler(async ({ mode, dev, button, wheel_click, right_click }) => {
+eventHandler(async ({ mode, dev, button, wheel_click }) => {
     switch (button) {
         case 1:
             {
@@ -37,7 +61,15 @@ eventHandler(async ({ mode, dev, button, wheel_click, right_click }) => {
 
         case 3:
             {
-                if (right_click) await execAsync(right_click);
+                const status = await getPAStatus(mode, dev);
+                const active_port = status["active port"];
+                const ports = Object.keys(status["ports"]);
+
+                const new_port = ports[(ports.indexOf(active_port) + 1) % ports.length];
+
+                console.log(active_port,ports,new_port);
+                await execAsync(`pacmd set-${mode}-port ${dev} ${new_port}`);
+                mainJob.resume(true);
             }
             break;
 
