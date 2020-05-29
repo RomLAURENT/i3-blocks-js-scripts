@@ -1,23 +1,65 @@
 #!/usr/bin/env node
+process.title = "i3blocks-js-cpu";
+
 const { templates } = require("./conf.json");
-const { execAsync, update, jobPlanner, eventHandler } = require("./i3-blocks-helper");
+const { formatText, execAsync, update, jobPlanner, eventHandler } = require("./i3-blocks-helper");
 
-const mainJob = jobPlanner(async ({ symbol, zone, warning, alert }) => {
+const mainJob = jobPlanner(async ({
+    frmt = `CPU: %used%%`,
+    template = "normal",
 
-    const [, , idle] = await execAsync(`mpstat 1 1 | grep 'Moyenne' | awk '{print $12}'`);
-    const usage = 100 - idle.trim().split(",")[0];
+    trigger_value="used",
 
-    const template =
-        usage < warning ? templates.normal :
-            usage < alert ? templates.warning :
-                templates.alert;
+    warning_trigger=70,
+    warning_template = "warning",
+    warning_frmt = frmt,
 
-    update(
-        template,
-        {
-            full_text: `${symbol} <span size='small'>${usage}%</span>`,
-        }
-    );
+    alert_trigger=90,
+    alert_template = "alert",
+    alert_frmt = frmt,
+}) => {
+    const [, , stat] = await execAsync(`mpstat 1 1 | grep 'Moyenne'`);
+    const [,,,usr, nice, sys, iowait, irq, soft, steal, guest, gnice, idle]=stat
+        .split(/\s+/)
+        .map(v => Math.round(v.trim().replace(",",".")));
+
+    const used = 100 - idle;
+
+    const values = { used, usr, nice, sys, iowait, irq, soft, steal, guest, gnice, idle}
+
+    const value = values[trigger_value];
+
+    let tmplt;
+    let text;
+    if(warning_trigger > alert_trigger){
+        tmplt = templates[
+            value > warning_trigger ? template :
+            value > alert_trigger ? warning_template :
+            alert_template
+        ];
+
+        text = formatText(
+            value > warning_trigger ? frmt :
+            value > alert_trigger ? warning_frmt :
+            alert_frmt,
+            values
+        );
+    } else {
+        tmplt = templates[
+            value < warning_trigger ? template :
+            value < alert_trigger ? warning_template :
+            alert_template
+        ];
+
+        text = formatText(
+            value < warning_trigger ? frmt :
+            value < alert_trigger ? warning_frmt :
+            alert_frmt,
+            values
+        );
+    }
+
+    update(tmplt, text);
 }, 10);
 
 
