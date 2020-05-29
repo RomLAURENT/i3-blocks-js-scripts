@@ -52,7 +52,7 @@ eventHandler(async ({ mode, button }) => {
     switch (button) {
         case 1:
             {
-                await execAsync(`pacmd set-${mode}-mute ${default_dev} toggle`);
+                await execAsync(`pactl set-${mode}-mute ${default_dev} toggle`);
                 mainJob.resume(true);
             }
             break;
