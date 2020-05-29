@@ -5,84 +5,99 @@ const { templates } = require("./conf.json");
 const paParser = require("./pa-parser");
 const { formatText, execAsync, update, jobPlanner, eventHandler } = require("./i3-blocks-helper");
 
-const getPAStatus = async (mode, dev) => {
+const getPAStatus = async (mode) => {
     const [, , raw] = await execAsync(`pacmd list-${mode}s`);
     const status = paParser(raw);
-    return status.filter(c => c.value == dev)[0];
+    return status;
+}
+const getStreams = async (mode, dev) => {
+    const [, , raw] = await execAsync(`pacmd list-${mode}-inputs ${dev}`);
+    const status = paParser(raw);
+    return status;
 }
 
-function getPortLabel (port) {
+function getPortLabel(port) {
     return process.env[`port_label_${port}`] || process.env[`port_label_undefined`] || port;
+}
+
+function getDevLabel(dev) {
+    return process.env[`dev_label_${dev}`] || process.env[`dev_label_undefined`] || dev;
 }
 
 const mainJob = jobPlanner(async ({
     mode,
-    dev,
 
-    frmt = `%port% : %volume%%`,
+    frmt = `%dev%,%port% : %volume%%`,
     template = "normal",
 
-    frmt_muted = `%port% : MUTED`,
+    frmt_muted = `%dev%,%port% : MUTED`,
     muted_template = "alert",
 }) => {
-    const status = await getPAStatus(mode, dev);
-    const [, vol_left_raw, vol_left_pc, vol_left_db] = status.volume.match(/front\-left\:\s+(\d+)\s+\/\s+(\d+)%\s+\/\s+(\-?\d+,\d+)\s+dB/i) || [];
-    const [, vol_right_raw, vol_right_pc, vol_right_db] = status.volume.match(/front\-right\:\s+(\d+)\s+\/\s+(\d+)%\s+\/\s+(\-?\d+,\d+)\s+dB/i) || [];
+    const all_entries = await getPAStatus(mode);
+    const default_entry = all_entries.filter(c => c.default)[0];
+    const [, volume] = default_entry.volume.match(/(\d+)%/i) || [];
 
     update(
-        templates[status.muted ? muted_template : template],
-        formatText(status.muted ? frmt_muted : frmt, {
-            port: getPortLabel(status["active port"]),
-            volume: vol_left_pc || vol_right_pc,
-            vol_left_raw,
-            vol_left_pc,
-            vol_left_db,
-            vol_right_raw,
-            vol_right_pc,
-            vol_right_db,
+        templates[default_entry.muted ? muted_template : template],
+        formatText(default_entry.muted ? frmt_muted : frmt, {
+            port: getPortLabel(default_entry["active port"]),
+            dev: getDevLabel(default_entry.name),
+            volume,
         })
     );
-}, 500);
+}, 1000);
 
-eventHandler(async ({ mode, dev, button, wheel_click }) => {
+eventHandler(async ({ mode, button }) => {
+    const default_dev = mode == "sink" ? "@DEFAULT_SINK@" : "@DEFAULT_SOURCE@";
     switch (button) {
         case 1:
             {
-                await execAsync(`pactl set-${mode}-mute ${dev} toggle`);
+                await execAsync(`pacmd set-${mode}-mute ${default_dev} toggle`);
                 mainJob.resume(true);
             }
             break;
 
         case 2:
             {
-                if (wheel_click) await execAsync(wheel_click);
+                const status = await getPAStatus(mode);
+                const default_entry = status.filter(c => c.default).map(d => d.value)[0];
+                const entries = status.map(d => d.value);
+                const streams = (await getStreams(mode, default_entry)).map(d => d.value);
+
+                const new_default = entries[(entries.indexOf(default_entry) + 1) % entries.length];
+
+                await execAsync(`pactl set-default-${mode} ${new_default}`);
+                for (const stream of streams) {
+                    await execAsync(`pacmd move-${mode}-input ${stream} ${new_default}`);
+                }
+                mainJob.resume(true);
             }
             break;
 
         case 3:
             {
-                const status = await getPAStatus(mode, dev);
-                const active_port = status["active port"];
-                const ports = Object.keys(status["ports"]);
+                const all_entries = await getPAStatus(mode);
+                const default_entry = all_entries.filter(c => c.default)[0];
+                const active_port = default_entry["active port"];
+                const ports = Object.keys(default_entry["ports"]);
 
                 const new_port = ports[(ports.indexOf(active_port) + 1) % ports.length];
 
-                console.log(active_port,ports,new_port);
-                await execAsync(`pacmd set-${mode}-port ${dev} ${new_port}`);
+                await execAsync(`pactl set-${mode}-port ${default_dev} ${new_port}`);
                 mainJob.resume(true);
             }
             break;
 
         case 4:
             {
-                await execAsync(`pactl set-${mode}-volume ${dev} +5%`);
+                await execAsync(`pactl set-${mode}-volume ${default_dev} +5%`);
                 mainJob.resume(true);
             }
             break;
 
         case 5:
             {
-                await execAsync(`pactl set-${mode}-volume ${dev} -5%`);
+                await execAsync(`pactl set-${mode}-volume ${default_dev} -5%`);
                 mainJob.resume(true);
             }
             break;
