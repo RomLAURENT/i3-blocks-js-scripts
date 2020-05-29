@@ -48,7 +48,7 @@ eventHandler(async ({ mode, dev, button, wheel_click }) => {
     switch (button) {
         case 1:
             {
-                await execAsync(`pamixer --${mode} ${dev} --allow-boost --toggle-mute`);
+                await execAsync(`pactl set-${mode}-mute ${dev} toggle`);
                 mainJob.resume(true);
             }
             break;
@@ -75,14 +75,14 @@ eventHandler(async ({ mode, dev, button, wheel_click }) => {
 
         case 4:
             {
-                await execAsync(`pamixer --${mode} ${dev} --allow-boost --increase 5`);
+                await execAsync(`pactl set-${mode}-volume ${dev} +5%`);
                 mainJob.resume(true);
             }
             break;
 
         case 5:
             {
-                await execAsync(`pamixer --${mode} ${dev} --allow-boost --decrease 5`);
+                await execAsync(`pactl set-${mode}-volume ${dev} -5%`);
                 mainJob.resume(true);
             }
             break;
