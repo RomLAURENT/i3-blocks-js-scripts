@@ -96,3 +96,7 @@ eventHandler(async ({ button, left_click, wheel_click, right_click, wheel_up, wh
             break;
     }
 });
+
+process.on('SIGUSR1', () => {
+    mainJob.resume(true);
+})
