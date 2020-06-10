@@ -1,33 +1,72 @@
 #!/usr/bin/env node
-const {templates} = require("./conf.json");
+process.title = "i3blocks-js-battery";
+
+const { templates } = require("./conf.json");
 const { formatText, execAsync, update, jobPlanner, eventHandler } = require("./i3-blocks-helper");
 
-async function getRemaining() {
-    const [, , remaining_res] = await execAsync(`cat /sys/class/power_supply/BAT1/capacity`);
+async function getRemaining(device) {
+    const [, , remaining_res] = await execAsync(`cat /sys/class/power_supply/${device}/capacity`);
     const remaining = remaining_res.trim();
-    return remaining;
+    return Number(remaining);
 }
 
-async function isCharging() {
-    const [, , status_res] = await execAsync(`cat /sys/class/power_supply/BAT1/status`);
+async function isCharging(device) {
+    const [, , status_res] = await execAsync(`cat /sys/class/power_supply/${device}/status`);
     return status_res.trim() === 'Charging';
 }
 
 const mainJob = jobPlanner(async ({
-    charging_frmt=`B: %remaining%%+`,
-    discharging_frmt=`B: %remaining%%-`,
-    template=`normal`,
-    discharged_template=`alert`,
-    discharged_trigger=30,
-}) => {
-    const remaining = await getRemaining();
-    const is_charging = await isCharging();
+    device = `BAT1`,
 
-    //const symbol = is_charging ? symbol_charging : symbol_discharging;
-    //const remaining_label = ` <span size='small'>${remaining_value}%</span>`
+    frmt = `BAT: %remaining%% %status%`,
+
+    status_charging = `+`,
+    status_discharging = `-`,
+
+    full_trigger = 82,
+    full_template = `good`,
+    full_symbol = ``,
+
+    normal_template = `normal`,
+    normal_symbol = ``,
+
+    warning_trigger = 30,
+    warning_template = `warning`,
+    warning_symbol = ``,
+
+    alert_trigger = 10,
+    alert_template = `alert`,
+    alert_symbol = ``,
+}) => {
+    const remaining = await getRemaining(device);
+    const is_charging = await isCharging(device);
+
+    const template = templates[
+        remaining > full_trigger ? full_template :
+            remaining < alert_trigger ? alert_template :
+                remaining < warning_template ? warning_template :
+                    normal_template
+    ];
+
+    const symbol =
+        remaining > full_trigger ? full_symbol :
+            remaining < alert_trigger ? alert_symbol :
+                remaining < warning_template ? warning_symbol :
+                    normal_symbol
+        ;
+
+    const status = remaining > full_trigger ? status_charging : status_discharging;
+
     update(
-        templates[remaining < discharged_trigger ? discharged_template : template],
-        formatText(is_charging ? charging_frmt : discharging_frmt, {remaining}),
+        template,
+        formatText(
+            frmt,
+            {
+                symbol,
+                status,
+                remaining,
+            }
+        )
     );
 }, 5000);
 

@@ -1,21 +1,30 @@
 #!/usr/bin/env node
-const { templates } = require("./conf.json");
-const { execAsync, update, jobPlanner, eventHandler } = require("./i3-blocks-helper");
+process.title = "i3blocks-js-pacman";
 
-const mainJob = jobPlanner(async ({ symbol, locale = "fr" }) => {
+const { templates } = require("./conf.json");
+const { formatText, execAsync, update, jobPlanner, eventHandler } = require("./i3-blocks-helper");
+
+const mainJob = jobPlanner(async ({ 
+    frmt_checking = `PKG: CHK`,
+    template_checking = `warning`,
+
+    frmt_OK = `PKG: OK`,
+    template_OK = `normal`,
+
+    frmt_KO = `PKG: %count%`,
+    template_KO = `alert`,
+}) => {
     update(
-        templates.warning,
-        { full_text: `${symbol} ` }
+        templates[template_checking],
+        formatText(frmt_checking, {}),
     );
 
     const [, , updates = 0] = await execAsync(`pamac checkupdates -aq | wc -l`);
-    const template = updates.trim() == 0 ? templates.good : templates.warning;
+    const count = Number(updates.trim());
 
     update(
-        template,
-        {
-            full_text: `${symbol} <span size='small'>${updates.trim()}</span>`,
-        }
+        templates[count ? template_KO : template_OK],
+        formatText(count ? frmt_KO : frmt_OK, { count }),
     );
 }, 3 * 60 * 60 * 1000);
 
@@ -51,4 +60,8 @@ eventHandler(async ({ button, wheel_click, right_click, wheel_up, wheel_down }) 
             }
             break;
     }
+});
+
+process.on('SIGUSR1', () => {
+    mainJob.resume(true);
 });

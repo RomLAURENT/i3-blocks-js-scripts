@@ -1,59 +1,115 @@
 #!/usr/bin/env node
+process.title = "i3blocks-js-pa";
+
 const { templates } = require("./conf.json");
-const { execAsync, update, jobPlanner, eventHandler } = require("./i3-blocks-helper");
+const paParser = require("./pa-parser");
+const { formatText, execAsync, update, jobPlanner, eventHandler } = require("./i3-blocks-helper");
 
+const getPAStatus = async (mode) => {
+    const [, , raw] = await execAsync(`pacmd list-${mode}s`);
+    const status = paParser(raw);
+    return status;
+}
+const getStreams = async (mode, dev) => {
+    const [, , raw] = await execAsync(`pacmd list-${mode}-inputs ${dev}`);
+    const status = paParser(raw);
+    return status;
+}
 
-const mainJob = jobPlanner(async ({ mode, dev, symbol, mutedsymbol }) => {
-    const [, , volume] = await execAsync(`pamixer --${mode} ${dev} --allow-boost --get-volume-human`);
+function getPortLabel(port) {
+    return process.env[`port_label_${port}`] || process.env[`port_label_undefined`] || port;
+}
 
-    if (volume.trim() === "muted") {
-        update(
-            templates.alert,
-            { full_text: mutedsymbol }
-        );
-    }
-    else {
-        update(
-            templates.normal,
-            { full_text: `${symbol} <span size='small'>${volume.trim()}</span>` }
-        );
-    }
-}, 500);
+function getDevLabel(dev) {
+    return process.env[`dev_label_${dev}`] || process.env[`dev_label_undefined`] || dev;
+}
 
-eventHandler(async ({ mode, dev, button, wheel_click, right_click }) => {
-    switch (button) {
-        case 1:
-            {
-                await execAsync(`pamixer --${mode} ${dev} --allow-boost --toggle-mute`);
-                mainJob.resume(true);
-            }
-            break;
+const mainJob = jobPlanner(async ({
+    mode,
 
-        case 2:
-            {
-                if (wheel_click) await execAsync(wheel_click);
-            }
-            break;
+    frmt = `%dev%,%port% : %volume%%`,
+    template = "normal",
 
-        case 3:
-            {
-                if (right_click) await execAsync(right_click);
-            }
-            break;
+    frmt_muted = `%dev%,%port% : MUTED`,
+    muted_template = "alert",
+}) => {
+    const all_entries = await getPAStatus(mode);
+    const default_entry = all_entries.filter(c => c.default)[0];
+    const [, volume] = default_entry.volume.match(/(\d+)%/i) || [];
 
-        case 4:
-            {
-                await execAsync(`pamixer --${mode} ${dev} --allow-boost --increase 5`);
-                mainJob.resume(true);
-            }
-            break;
+    update(
+        templates[default_entry.muted ? muted_template : template],
+        formatText(default_entry.muted ? frmt_muted : frmt, {
+            port: getPortLabel(default_entry["active port"]),
+            dev: getDevLabel(default_entry.name),
+            volume,
+        })
+    );
+}, 5000);
 
-        case 5:
-            {
-                await execAsync(`pamixer --${mode} ${dev} --allow-boost --decrease 5`);
-                mainJob.resume(true);
-            }
-            break;
+eventHandler(async ({ mode, button }) => {
+    try {
+        const default_dev = mode == "sink" ? "@DEFAULT_SINK@" : "@DEFAULT_SOURCE@";
+        switch (button) {
+            case 1:
+                {
+                    await execAsync(`pactl set-${mode}-mute ${default_dev} toggle`);
+                    mainJob.resume(true);
+                }
+                break;
+
+            case 2:
+                {
+                    const status = await getPAStatus(mode);
+                    const default_entry = status
+                        .filter(c => c.default)
+                        .map(d => d.value)[0];
+                    const entries = status
+                        .filter(c => c.default || c.properties["device.class"] != "monitor")
+                        .map(d => d.value);
+                    const streams = (await getStreams(mode, default_entry))
+                        .map(d => d.value);
+
+                    const new_default = entries[(entries.indexOf(default_entry) + 1) % entries.length];
+
+                    await execAsync(`pactl set-default-${mode} ${new_default}`);
+                    for (const stream of streams) {
+                        await execAsync(`pacmd move-${mode}-input ${stream} ${new_default}`);
+                    }
+                    mainJob.resume(true);
+                }
+                break;
+
+            case 3:
+                {
+                    const all_entries = await getPAStatus(mode);
+                    const default_entry = all_entries.filter(c => c.default)[0];
+                    const active_port = default_entry["active port"];
+                    const ports = Object.keys(default_entry["ports"]);
+
+                    const new_port = ports[(ports.indexOf(active_port) + 1) % ports.length];
+
+                    await execAsync(`pactl set-${mode}-port ${default_dev} ${new_port}`);
+                    mainJob.resume(true);
+                }
+                break;
+
+            case 4:
+                {
+                    await execAsync(`pactl set-${mode}-volume ${default_dev} +5%`);
+                    mainJob.resume(true);
+                }
+                break;
+
+            case 5:
+                {
+                    await execAsync(`pactl set-${mode}-volume ${default_dev} -5%`);
+                    mainJob.resume(true);
+                }
+                break;
+        }
+    } catch (e) {
+        mainJob.resume(true);
     }
 });
 

@@ -31,7 +31,9 @@ const update = (...blockdef) => {
 const jobPlanner = (job, delay) => {
     let tmHandler = 0;
     const exec = async () => {
-        await job(process.env);
+        try {
+            await job(process.env);
+        } catch (e) { console.log(e); }
         tmHandler = setTimeout(exec, delay);
     };
     tmHandler = setTimeout(exec, 0);
@@ -46,7 +48,11 @@ const jobPlanner = (job, delay) => {
 
 const eventHandler = handler => {
     var rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    rl.on('line', async (line) => handler({ ...process.env, ...JSON.parse(line) }));
+    rl.on('line', async (line) => {
+        try {
+            handler({ ...process.env, ...JSON.parse(line) });
+        } catch (e) { }
+    });
 };
 
 module.exports = {
