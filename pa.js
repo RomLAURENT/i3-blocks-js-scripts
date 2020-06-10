@@ -45,62 +45,71 @@ const mainJob = jobPlanner(async ({
             volume,
         })
     );
-}, 1000);
+}, 5000);
 
 eventHandler(async ({ mode, button }) => {
-    const default_dev = mode == "sink" ? "@DEFAULT_SINK@" : "@DEFAULT_SOURCE@";
-    switch (button) {
-        case 1:
-            {
-                await execAsync(`pactl set-${mode}-mute ${default_dev} toggle`);
-                mainJob.resume(true);
-            }
-            break;
-
-        case 2:
-            {
-                const status = await getPAStatus(mode);
-                const default_entry = status.filter(c => c.default).map(d => d.value)[0];
-                const entries = status.map(d => d.value);
-                const streams = (await getStreams(mode, default_entry)).map(d => d.value);
-
-                const new_default = entries[(entries.indexOf(default_entry) + 1) % entries.length];
-
-                await execAsync(`pactl set-default-${mode} ${new_default}`);
-                for (const stream of streams) {
-                    await execAsync(`pacmd move-${mode}-input ${stream} ${new_default}`);
+    try {
+        const default_dev = mode == "sink" ? "@DEFAULT_SINK@" : "@DEFAULT_SOURCE@";
+        switch (button) {
+            case 1:
+                {
+                    await execAsync(`pactl set-${mode}-mute ${default_dev} toggle`);
+                    mainJob.resume(true);
                 }
-                mainJob.resume(true);
-            }
-            break;
+                break;
 
-        case 3:
-            {
-                const all_entries = await getPAStatus(mode);
-                const default_entry = all_entries.filter(c => c.default)[0];
-                const active_port = default_entry["active port"];
-                const ports = Object.keys(default_entry["ports"]);
+            case 2:
+                {
+                    const status = await getPAStatus(mode);
+                    const default_entry = status
+                        .filter(c => c.default)
+                        .map(d => d.value)[0];
+                    const entries = status
+                        .filter(c => c.default || c.properties["device.class"] != "monitor")
+                        .map(d => d.value);
+                    const streams = (await getStreams(mode, default_entry))
+                        .map(d => d.value);
 
-                const new_port = ports[(ports.indexOf(active_port) + 1) % ports.length];
+                    const new_default = entries[(entries.indexOf(default_entry) + 1) % entries.length];
 
-                await execAsync(`pactl set-${mode}-port ${default_dev} ${new_port}`);
-                mainJob.resume(true);
-            }
-            break;
+                    await execAsync(`pactl set-default-${mode} ${new_default}`);
+                    for (const stream of streams) {
+                        await execAsync(`pacmd move-${mode}-input ${stream} ${new_default}`);
+                    }
+                    mainJob.resume(true);
+                }
+                break;
 
-        case 4:
-            {
-                await execAsync(`pactl set-${mode}-volume ${default_dev} +5%`);
-                mainJob.resume(true);
-            }
-            break;
+            case 3:
+                {
+                    const all_entries = await getPAStatus(mode);
+                    const default_entry = all_entries.filter(c => c.default)[0];
+                    const active_port = default_entry["active port"];
+                    const ports = Object.keys(default_entry["ports"]);
 
-        case 5:
-            {
-                await execAsync(`pactl set-${mode}-volume ${default_dev} -5%`);
-                mainJob.resume(true);
-            }
-            break;
+                    const new_port = ports[(ports.indexOf(active_port) + 1) % ports.length];
+
+                    await execAsync(`pactl set-${mode}-port ${default_dev} ${new_port}`);
+                    mainJob.resume(true);
+                }
+                break;
+
+            case 4:
+                {
+                    await execAsync(`pactl set-${mode}-volume ${default_dev} +5%`);
+                    mainJob.resume(true);
+                }
+                break;
+
+            case 5:
+                {
+                    await execAsync(`pactl set-${mode}-volume ${default_dev} -5%`);
+                    mainJob.resume(true);
+                }
+                break;
+        }
+    } catch (e) {
+        mainJob.resume(true);
     }
 });
 
