@@ -1,22 +1,66 @@
 #!/usr/bin/env node
+process.title = "i3blocks-js-mem";
+
 const { templates } = require("./conf.json");
-const { execAsync, update, jobPlanner, eventHandler } = require("./i3-blocks-helper");
+const { formatText, execAsync, update, jobPlanner, eventHandler } = require("./i3-blocks-helper");
 
-const mainJob = jobPlanner(async ({ symbol, zone, warning, alert }) => {
+const mainJob = jobPlanner(async ({
+    frmt = `MEM: %usedPc%%`,
+    template = "normal",
 
+    trigger_value="usedPc",
+
+    warning_trigger=15,
+    warning_template = "warning",
+    warning_frmt = frmt,
+
+    alert_trigger=10,
+    alert_template = "alert",
+    alert_frmt = frmt,
+}) => {
     const [, , mem] = await execAsync(`free | grep "Mem:"`);
-    const [, total, used] = mem.trim().split(/\s+/);
-    const usedPC = used / total * 100;
+    const [, total, used, free, shared, cache, avaible] = mem.trim().split(/\s+/);
+    const [usedPc, freePc, sharedPc, cachePc, avaiblePc] = [used, free, shared, cache, avaible].map(v => Math.round(v / total * 100));
 
-    const template =
-        usedPC < alert ? templates.alert :
-            usedPC < warning ? templates.warning :
-                templates.normal;
+    const values ={
+        total,
+        used, free, shared, cache, avaible,
+        usedPc, freePc, sharedPc, cachePc, avaiblePc
+    };
 
-    update(
-        template,
-        { full_text: `${symbol} <span size='small'>${Math.round(usedPC)}%</span>` }
-    );
+    const value = values[trigger_value];
+
+    let tmplt;
+    let text;
+    if(warning_trigger > alert_trigger){
+        tmplt = templates[
+            value > warning_trigger ? template :
+            value > alert_trigger ? warning_template :
+            alert_template
+        ];
+
+        text = formatText(
+            value > warning_trigger ? frmt :
+            value > alert_trigger ? warning_frmt :
+            alert_frmt,
+            values
+        );
+    } else {
+        tmplt = templates[
+            value < warning_trigger ? template :
+            value < alert_trigger ? warning_template :
+            alert_template
+        ];
+
+        text = formatText(
+            value < warning_trigger ? frmt :
+            value < alert_trigger ? warning_frmt :
+            alert_frmt,
+            values
+        );
+    }
+
+    update(tmplt, text);
 }, 1000);
 
 eventHandler(async ({ button, left_click, wheel_click, right_click, wheel_up, wheel_down }) => {
@@ -51,4 +95,8 @@ eventHandler(async ({ button, left_click, wheel_click, right_click, wheel_up, wh
             }
             break;
     }
+});
+
+process.on('SIGUSR1', () => {
+    mainJob.resume(true);
 });
