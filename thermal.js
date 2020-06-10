@@ -1,20 +1,38 @@
 #!/usr/bin/env node
-const { templates } = require("./conf.json");
-const { execAsync, update, jobPlanner, eventHandler } = require("./i3-blocks-helper");
+process.title = "i3blocks-js-thermal";
 
-const mainJob = jobPlanner(async ({ symbol, zone, warning, alert }) => {
+const { templates } = require("./conf.json");
+const { formatText, execAsync, update, jobPlanner, eventHandler } = require("./i3-blocks-helper");
+
+const mainJob = jobPlanner(async ({
+    zone = 0,
+
+    frmt = `T: %degree%°`,
+    template = "normal",
+
+    warning_trigger=55,
+    warning_template = "warning",
+    warning_frmt = frmt,
+
+    alert_trigger=65,
+    alert_template = "alert",
+    alert_frmt = frmt,
+}) => {
     const [, , temp] = await execAsync(`cat /sys/class/thermal/thermal_zone${zone}/temp`);
     const degree = temp.trim() / 1000;
-    const template =
-        degree < warning ? templates.normal :
-            degree < alert ? templates.warning :
-                templates.alert;
 
     update(
-        template,
-        {
-            full_text: `${symbol} <span size='small'>${degree}°</span>`,
-        }
+        templates[
+            degree < warning_trigger ? template :
+            degree < alert_trigger ? warning_template :
+            alert_template
+        ],
+        formatText(
+            degree < warning_trigger ? frmt :
+            degree < alert_trigger ? warning_frmt :
+            alert_frmt,
+            {degree}
+        )
     );
 }, 1000);
 
@@ -51,3 +69,7 @@ eventHandler(async ({ button, left_click, wheel_click, right_click, wheel_up, wh
             break;
     }
 });
+
+process.on('SIGUSR1', () => {
+    mainJob.resume(true);
+})
