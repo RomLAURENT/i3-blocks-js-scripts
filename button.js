@@ -1,7 +1,8 @@
 #!/usr/bin/env node
+process.title = "i3blocks-js-button";
+
 const { templates } = require("./conf.json");
 const { formatText, execAsync, update, jobPlanner, eventHandler } = require("./i3-blocks-helper");
-
 
 const mainJob = jobPlanner(async ({
     text,
@@ -45,4 +46,8 @@ eventHandler(async ({ button, left_click, wheel_click, right_click, wheel_up, wh
             }
             break;
     }
+});
+
+process.on('SIGUSR1', () => {
+    mainJob.resume(true);
 });
