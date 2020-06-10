@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+process.title = "i3blocks-js-date";
+
 const { templates } = require("./conf.json");
 const { formatText, execAsync, update, jobPlanner, eventHandler } = require("./i3-blocks-helper");
 
@@ -54,4 +56,8 @@ eventHandler(async ({ button, wheel_click, right_click, wheel_up, wheel_down }) 
             }
             break;
     }
+});
+
+process.on('SIGUSR1', () => {
+    mainJob.resume(true);
 });
