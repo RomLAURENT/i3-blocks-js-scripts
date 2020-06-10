@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 const indent_parse = /(\t*)(.*)/i
-const key_value_parse = /^(([^:=]*)*?\s*[:=]\s*)?(.*)$/i
+const key_value_parse = /^(([^:=]*)*[:=]\s*)?(.*)$/i
 
 function parse(data) {
     const flow = [{ key: "result", indent_count: -1, children: [] }];
@@ -35,8 +35,6 @@ function parse(data) {
         if (it.value === "") it.value = null;
     }
 
-    //return flow;
-
     const parseValue = value => {
         let v = value;
         do {
@@ -67,18 +65,17 @@ function parse(data) {
         return v;
     }
 
-    const simplifyValue = ({ value, children }) =>
+    const simplifyChildren = children =>
+        children.reduce((a, { key, value, children }) => ({ ...a, [key.trim()]: simplify({value, children}) }), {});
+
+    const simplify = ({value, children}) =>
         !children.length ? parseValue(value) :
-            value === null ? simplify(children) :
-                { value: parseValue(value), ...simplify(children) };
+            value === null || value === undefined ? simplifyChildren(children) :
+            { value: parseValue(value), ...simplifyChildren(children) };
 
-    const simplify = (children) => children.reduce((a, { key, ...item }) => ({ ...a, [key]: simplifyValue(item) }), {});
-
-    const result = simplify(flow).result;
-
-    delete result.value;
-
-    return Object.entries(result).map(([k, v]) => ({ ...v, default: k === "  * index" }));
+    return flow[0].children.map(({key,...node}) => ({ ...simplify(node), default: key === "  * index" }));
 }
+
+//console.dir(parse(require("fs").readFileSync("./sources.txt", "utf8")), { depth: 4 });
 
 module.exports = parse;
