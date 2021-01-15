@@ -11,7 +11,7 @@ const getPAStatus = async (mode) => {
     return status;
 }
 const getStreams = async (mode, dev) => {
-    const [, , raw] = await execAsync(`pacmd list-${mode}-inputs ${dev}`);
+    const [, , raw] = await execAsync(`pacmd list-${mode}-${mode === `sink` ? `inputs` : `outputs`} ${dev}`);
     const status = paParser(raw);
     return status;
 }

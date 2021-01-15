@@ -10,11 +10,11 @@ const mainJob = jobPlanner(async ({
 
     trigger_value="usedPc",
 
-    warning_trigger=15,
+    warning_trigger=80,
     warning_template = "warning",
     warning_frmt = frmt,
 
-    alert_trigger=10,
+    alert_trigger=90,
     alert_template = "alert",
     alert_frmt = frmt,
 }) => {
