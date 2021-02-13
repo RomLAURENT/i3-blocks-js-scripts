@@ -86,6 +86,7 @@ eventHandler(async ({ mode, button }) => {
                     }
                     mainJob.resume(true);
                 }
+                break;
             //     {
             //         const status = await getPAStatus(mode);
 
